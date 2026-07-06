@@ -126,17 +126,31 @@ final class DictationController: ObservableObject {
 
     private func process(_ samples: [Float]) async {
         do {
+            let vocabulary = Settings.vocabularyTerms
+
             phase = .transcribing
-            let raw = try await transcriber.transcribe(samples: samples, model: Settings.whisperModel)
+            let raw = try await transcriber.transcribe(
+                samples: samples,
+                model: Settings.whisperModel,
+                vocabulary: vocabulary
+            )
             guard !raw.isEmpty else {
                 phase = .idle
                 return
             }
 
-            var text = raw
+            // Deterministic vocabulary fix-up before the LLM sees the text,
+            // so cleanup never has to guess at spellings.
+            var text = VocabularyCorrector(terms: vocabulary).correct(raw)
+
             if Settings.cleanupEnabled {
                 phase = .cleaning
-                text = await cleaner.clean(raw, model: Settings.ollamaModel, baseURL: Settings.ollamaURL)
+                text = await cleaner.clean(
+                    text,
+                    model: Settings.ollamaModel,
+                    baseURL: Settings.ollamaURL,
+                    vocabulary: vocabulary
+                )
             }
 
             lastTranscript = text

@@ -10,6 +10,7 @@ struct MenuView: View {
     @AppStorage(Settings.Keys.cleanupEnabled) private var cleanupEnabled = true
     @AppStorage(Settings.Keys.soundFeedback) private var soundFeedback = true
     @AppStorage(Settings.Keys.overlayEnabled) private var overlayEnabled = true
+    @AppStorage(Settings.Keys.vocabulary) private var vocabularyRaw = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -69,6 +70,20 @@ struct MenuView: View {
 
             Toggle("Recording overlay", isOn: $overlayEnabled)
             Toggle("Sound feedback", isOn: $soundFeedback)
+
+            DisclosureGroup("Custom vocabulary (\(Settings.vocabularyTerms.count))") {
+                VStack(alignment: .leading, spacing: 4) {
+                    TextEditor(text: $vocabularyRaw)
+                        .font(.caption.monospaced())
+                        .frame(height: 76)
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.quaternary))
+                    Text("Names, acronyms, jargon — one per line or comma-separated. Applied to recognition, spelling fix-up, and cleanup.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+            }
+            .font(.callout)
         }
     }
 

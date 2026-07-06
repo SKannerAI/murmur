@@ -29,11 +29,26 @@ actor WhisperTranscriber {
     }
 
     /// Transcribe 16 kHz mono Float32 samples to text.
-    func transcribe(samples: [Float], model: String) async throws -> String {
+    ///
+    /// When `vocabulary` is non-empty it is fed to the decoder as prompt
+    /// tokens (Whisper conditions on them as if they were preceding context),
+    /// biasing recognition toward those spellings before any post-correction.
+    func transcribe(samples: [Float], model: String, vocabulary: [String] = []) async throws -> String {
         try await load(model: model)
         guard let whisperKit else { throw TranscriberError.modelNotLoaded }
 
-        let results = try await whisperKit.transcribe(audioArray: samples)
+        var options = DecodingOptions()
+        if !vocabulary.isEmpty, let tokenizer = whisperKit.tokenizer {
+            let prompt = "Glossary: " + vocabulary.joined(separator: ", ") + "."
+            let promptTokens = tokenizer.encode(text: " " + prompt)
+                .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+            if !promptTokens.isEmpty {
+                options.promptTokens = promptTokens
+                options.usePrefillPrompt = true
+            }
+        }
+
+        let results = try await whisperKit.transcribe(audioArray: samples, decodeOptions: options)
         let raw = results.map(\.text).joined(separator: " ")
         return Self.stripAnnotations(raw)
     }

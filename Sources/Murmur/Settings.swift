@@ -10,6 +10,7 @@ enum Settings {
         static let cleanupEnabled = "cleanupEnabled"
         static let soundFeedback = "soundFeedback"
         static let overlayEnabled = "overlayEnabled"
+        static let vocabulary = "vocabulary"
     }
 
     static let defaults: [String: Any] = [
@@ -19,6 +20,7 @@ enum Settings {
         Keys.cleanupEnabled: true,
         Keys.soundFeedback: true,
         Keys.overlayEnabled: true,
+        Keys.vocabulary: "",
     ]
 
     /// WhisperKit model names selectable in the UI.
@@ -57,5 +59,16 @@ enum Settings {
 
     static var overlayEnabled: Bool {
         UserDefaults.standard.bool(forKey: Keys.overlayEnabled)
+    }
+
+    /// Custom vocabulary: newline- or comma-separated terms, deduped
+    /// case-insensitively, order preserved.
+    static var vocabularyTerms: [String] {
+        let raw = UserDefaults.standard.string(forKey: Keys.vocabulary) ?? ""
+        var seen = Set<String>()
+        return raw
+            .split(whereSeparator: { $0 == "\n" || $0 == "," })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
     }
 }

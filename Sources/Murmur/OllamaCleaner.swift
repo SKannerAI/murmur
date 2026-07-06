@@ -35,8 +35,14 @@ struct OllamaCleaner {
     }
 
     /// Returns the cleaned transcript, or `raw` unchanged on any failure.
-    func clean(_ raw: String, model: String, baseURL: URL) async -> String {
+    func clean(_ raw: String, model: String, baseURL: URL, vocabulary: [String] = []) async -> String {
         guard !raw.isEmpty else { return raw }
+
+        var system = Self.systemPrompt
+        if !vocabulary.isEmpty {
+            system += "\nKnown terms — when a word or phrase in the transcript sounds like one of these, use this exact spelling: "
+                + vocabulary.joined(separator: ", ")
+        }
 
         var request = URLRequest(url: baseURL.appendingPathComponent("api/generate"))
         request.httpMethod = "POST"
@@ -45,7 +51,7 @@ struct OllamaCleaner {
 
         let body = GenerateRequest(
             model: model,
-            system: Self.systemPrompt,
+            system: system,
             prompt: raw,
             stream: false,
             options: .init(temperature: 0.1)
