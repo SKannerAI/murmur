@@ -9,6 +9,7 @@ enum Settings {
         static let ollamaURL = "ollamaURL"
         static let cleanupEnabled = "cleanupEnabled"
         static let soundFeedback = "soundFeedback"
+        static let overlayEnabled = "overlayEnabled"
     }
 
     static let defaults: [String: Any] = [
@@ -17,6 +18,7 @@ enum Settings {
         Keys.ollamaURL: "http://127.0.0.1:11434",
         Keys.cleanupEnabled: true,
         Keys.soundFeedback: true,
+        Keys.overlayEnabled: true,
     ]
 
     /// WhisperKit model names selectable in the UI.
@@ -51,5 +53,9 @@ enum Settings {
 
     static var soundFeedback: Bool {
         UserDefaults.standard.bool(forKey: Keys.soundFeedback)
+    }
+
+    static var overlayEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Keys.overlayEnabled)
     }
 }

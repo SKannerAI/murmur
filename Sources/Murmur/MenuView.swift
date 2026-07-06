@@ -9,6 +9,7 @@ struct MenuView: View {
     @AppStorage(Settings.Keys.ollamaURL) private var ollamaURL = "http://127.0.0.1:11434"
     @AppStorage(Settings.Keys.cleanupEnabled) private var cleanupEnabled = true
     @AppStorage(Settings.Keys.soundFeedback) private var soundFeedback = true
+    @AppStorage(Settings.Keys.overlayEnabled) private var overlayEnabled = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -66,6 +67,7 @@ struct MenuView: View {
                     .font(.caption)
             }
 
+            Toggle("Recording overlay", isOn: $overlayEnabled)
             Toggle("Sound feedback", isOn: $soundFeedback)
         }
     }

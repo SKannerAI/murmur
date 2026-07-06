@@ -51,6 +51,7 @@ final class DictationController: ObservableObject {
     private let audio = AudioEngine()
     private let transcriber = WhisperTranscriber()
     private let cleaner = OllamaCleaner()
+    private let overlay = RecordingOverlay()
 
     init() {
         Settings.register()
@@ -59,8 +60,8 @@ final class DictationController: ObservableObject {
         accessibilityGranted = Permissions.promptAccessibility()
         microphoneGranted = Permissions.microphoneGranted
 
-        hotkey.onPress = { [weak self] in self?.beginRecording() }
-        hotkey.onRelease = { [weak self] in self?.endRecording() }
+        hotkey.onPress = { [weak self] in self?.hotkeyPressed() }
+        hotkey.onRelease = { [weak self] in self?.hotkeyReleased() }
         if !hotkey.start() {
             errorMessage = "Could not install the global hotkey. Grant Accessibility permission, then relaunch Murmur."
         }
@@ -89,19 +90,29 @@ final class DictationController: ObservableObject {
         }
     }
 
-    private func beginRecording() {
-        guard phase == .idle else { return }
+    private func hotkeyPressed() {
+        guard phase == .idle else {
+            // Model still loading or a previous dictation still processing:
+            // tell the user why nothing is being recorded.
+            if Settings.overlayEnabled { overlay.show(.notReady) }
+            return
+        }
         errorMessage = nil
         do {
             try audio.start()
             phase = .recording
             playSound("Tink")
+            if Settings.overlayEnabled { overlay.show(.listening) }
         } catch {
             errorMessage = "Could not start recording: \(error.localizedDescription)"
         }
     }
 
-    private func endRecording() {
+    private func hotkeyReleased() {
+        // Always dismiss the overlay on release, even when the press was
+        // ignored (not-ready state) and no recording is in flight.
+        overlay.hide()
+
         guard phase == .recording else { return }
         let samples = audio.stop()
         playSound("Pop")
