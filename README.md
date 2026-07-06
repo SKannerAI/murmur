@@ -9,10 +9,16 @@ types the result into whatever app you're using.
 
 ```
 Right ⌥ (hold)                                  push-to-talk hotkey (CGEvent tap)
+  + on-screen "Listening…" overlay              floating capsule on the pointer's
+                                                screen while the key is held
   → AVAudioEngine, 16 kHz mono PCM              microphone capture
-  → WhisperKit (CoreML, Apple Neural Engine)    local speech-to-text
-  → Ollama @ localhost:11434 (qwen2.5:3b)       local LLM cleanup — falls back to
-                                                raw transcript if Ollama is down
+  → WhisperKit (CoreML, Apple Neural Engine)    local speech-to-text, biased
+                                                toward your custom vocabulary
+  → VocabularyCorrector                         deterministic phonetic/fuzzy
+                                                fix-up of names, acronyms, jargon
+  → Ollama @ localhost:11434 (qwen2.5:3b)       local LLM cleanup (fillers,
+                                                grammar, vocab-aware) — falls back
+                                                to raw transcript if Ollama is down
   → NSPasteboard + synthetic Cmd+V              insert into the frontmost app,
                                                 original clipboard restored
 ```
@@ -54,10 +60,33 @@ On first launch:
 ## Usage
 
 - **Hold Right Option (⌥)** and speak; release to transcribe, clean, and insert.
+- While the key is held, a floating **"Listening…" capsule** (pulsing mic +
+  waveform) appears bottom-center of the screen your pointer is on; it shows an
+  orange **"Not ready yet…"** state if the model is still loading or a previous
+  dictation is mid-pipeline.
 - The menu-bar icon shows the pipeline state (recording / transcribing / cleaning).
 - The menu-bar popover has settings: Whisper model (tiny.en → large-v3-turbo),
-  cleanup on/off, Ollama model/URL, sound feedback — plus a **Test insert** button
-  to verify text injection without speaking.
+  cleanup on/off, Ollama model/URL, recording overlay on/off, sound feedback —
+  plus a **Test insert** button to verify text injection without speaking.
+
+### Custom vocabulary
+
+Open the popover → **Custom vocabulary** and add names, acronyms, and jargon
+(one per line or comma-separated), e.g. `OpenFGA`, `Priya`, `Kitcheck`. Each term
+is applied at three points in the pipeline:
+
+1. **Recognition** — terms are fed to the Whisper decoder as prompt tokens, so
+   transcription itself prefers your spellings.
+2. **Deterministic fix-up** — a sliding-window matcher (squashed exact match,
+   edit distance, metaphone-lite phonetic key) corrects what Whisper still
+   mangles: `open f g a` → `OpenFGA`, `pria` → `Priya`, `kit check` → `Kitcheck`,
+   plus canonical casing. Conservative by design — matching thresholds are tuned
+   so real words (*kitchen*, *prior*, *spicy*) are never "corrected" into vocab.
+3. **Cleanup** — the term list is appended to the Ollama system prompt as a
+   glossary of exact spellings.
+
+Terms shorter than 3 characters are skipped by the fuzzy matcher (they would
+false-positive on everything) but still reach layers 1 and 3.
 
 ### Choosing models
 
@@ -77,6 +106,11 @@ On first launch:
   fallback), no hang, no error.
 - Check your clipboard after a dictation → your previous clipboard contents are
   restored.
+- Add a tricky term (e.g. `OpenFGA`) to Custom vocabulary, then dictate
+  *"schedule a sync about the open F G A migration"* → the exact spelling is
+  inserted.
+- On a multi-monitor setup, hold Right ⌥ with the pointer on each screen → the
+  overlay appears on the pointer's screen.
 
 ## Design notes & gotchas
 
@@ -89,6 +123,19 @@ On first launch:
   later. Secure input fields (passwords) may block synthetic paste by design.
 - Whisper's bracketed noise annotations (`[BLANK_AUDIO]` etc.) are stripped before
   cleanup/insert; recordings under 0.5s are ignored as accidental hotkey taps.
+- **Overlay placement on multi-display setups** — `NSScreen.main` follows the key
+  window, which a menu-bar app never has, so the overlay targets the screen
+  containing the mouse pointer instead (the best proxy for where the focused
+  text field is).
+- **Vocabulary matching order matters** — exact squashed matches claim their
+  tokens before fuzzy matching runs, so a fuzzy multi-word window can't swallow
+  a neighboring word ("to openfga" must not become "OpenFGA"). The phonetic key
+  collapses only literal doubles *before* dropping vowels, keeping *prior* (PRR)
+  distinct from *Priya* (PR).
+- **Rebuilds can invalidate the Accessibility grant** — each `./build.sh`
+  re-signs ad-hoc with a new signature; if the hotkey goes dead after an update,
+  toggle Murmur off/on in System Settings → Privacy & Security → Accessibility
+  and relaunch.
 
 ## Credits
 
