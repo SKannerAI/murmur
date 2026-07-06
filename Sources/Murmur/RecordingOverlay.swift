@@ -38,7 +38,7 @@ final class RecordingOverlay {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.contentView = hosting
 
-        if let screen = NSScreen.main {
+        if let screen = Self.activeScreen {
             let frame = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(
                 x: frame.midX - size.width / 2,
@@ -71,6 +71,16 @@ final class RecordingOverlay {
     private func hideImmediately() {
         panel?.orderOut(nil)
         panel = nil
+    }
+
+    /// The screen the user is actually working on. For a menu-bar app,
+    /// NSScreen.main follows the key window (which we never have), so on
+    /// multi-display setups it can be the wrong monitor. The pointer's screen
+    /// is the best proxy for where the focused text field is.
+    private static var activeScreen: NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main
     }
 }
 
