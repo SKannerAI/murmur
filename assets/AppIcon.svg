@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Murmur app icon: "Pulse" — the recording overlay's waveform, made iconic.
+       Standard macOS grid: 824pt squircle centered on a 1024pt canvas. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262a33"/>
+      <stop offset="1" stop-color="#0f1115"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8df7b4"/>
+      <stop offset="1" stop-color="#2fbf74"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none"
+        stroke="rgba(255,255,255,.09)" stroke-width="1.5"/>
+  <g fill="url(#bar)">
+    <rect x="264" y="412" width="64" height="200" rx="32"/>
+    <rect x="372" y="332" width="64" height="360" rx="32"/>
+    <rect x="480" y="372" width="64" height="280" rx="32"/>
+    <rect x="588" y="277" width="64" height="470" rx="32"/>
+    <rect x="696" y="397" width="64" height="230" rx="32"/>
+  </g>
+</svg>
