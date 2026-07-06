@@ -95,6 +95,33 @@ false-positive on everything) but still reach layers 1 and 3.
 | STT | `base.en` (~140 MB) | Fastest useful quality. Try `large-v3-turbo` (~950 MB) for best accuracy — still ~1s-class on M-series via the Neural Engine. |
 | Cleanup | `qwen2.5:3b` (~1.9 GB) | Good speed/quality for the (easy) cleanup task. Also try `llama3.2:3b`, `gemma2:2b`, `phi3.5`. |
 
+### Switching the cleanup LLM
+
+The cleanup model is a runtime setting — **no code changes, no rebuild**. Murmur
+sends whatever model name is in the popover's **Ollama model** field.
+
+1. Pull the model you want to try:
+
+   ```bash
+   ollama pull llama3.2:3b    # ~2.0 GB
+   ollama pull gemma2:2b      # ~1.6 GB, smaller/faster
+   ```
+
+2. Menu-bar popover → **Ollama model** field (visible when *LLM cleanup via
+   Ollama* is on) → replace `qwen2.5:3b` with the new name. It takes effect on
+   the next dictation.
+
+Notes:
+
+- The first dictation after a switch pays a one-time model load (~1–2 s);
+  Ollama then keeps the model warm for ~5 minutes of inactivity.
+- A typo'd or un-pulled model name doesn't break anything — every request
+  fails soft and you silently get raw transcripts (the fallback). If cleanup
+  seems to stop working, check the name against `ollama list`.
+- The **Whisper model** works the same way via its dropdown in the popover
+  (tiny.en → large-v3-turbo) — also runtime-switchable, with a one-time
+  download on first selection.
+
 ## Verification checklist
 
 - Dictate into TextEdit, Notes, a browser field, **and a terminal/editor like
