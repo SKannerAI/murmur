@@ -34,10 +34,20 @@ actor WhisperTranscriber {
     /// tokens (Whisper conditions on them as if they were preceding context),
     /// biasing recognition toward those spellings before any post-correction.
     func transcribe(samples: [Float], model: String, vocabulary: [String] = []) async throws -> String {
+        // Reusing one WhisperKit instance across several calls reproducibly
+        // degrades to an empty result after a couple of transcriptions —
+        // force a fresh instance every time until that's root-caused upstream.
+        whisperKit = nil
+        loadedModel = nil
         try await load(model: model)
         guard let whisperKit else { throw TranscriberError.modelNotLoaded }
 
         var options = DecodingOptions()
+        // Only prefill when we actually have prompt tokens — WhisperKit's
+        // prefill cache buffers are allocated uninitialized, and requesting
+        // prefill with no prompt appears to leak stale state from a
+        // previous transcription into the decoder.
+        options.usePrefillPrompt = false
         if !vocabulary.isEmpty, let tokenizer = whisperKit.tokenizer {
             let prompt = "Glossary: " + vocabulary.joined(separator: ", ") + "."
             let promptTokens = tokenizer.encode(text: " " + prompt)
