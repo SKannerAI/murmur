@@ -24,6 +24,18 @@ final class AudioEngine {
     private var samples: [Float] = []
     private let lock = NSLock()
 
+    /// Latest normalized microphone level (0…1), updated per audio buffer and
+    /// read from the main thread by the recording overlay's waveform. Guarded
+    /// by its own lock so the audio thread and UI never contend on `lock`.
+    private var _level: Float = 0
+    private let levelLock = NSLock()
+
+    var level: Float {
+        levelLock.lock()
+        defer { levelLock.unlock() }
+        return _level
+    }
+
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
         sampleRate: AudioEngine.sampleRate,
@@ -35,6 +47,10 @@ final class AudioEngine {
         lock.lock()
         samples.removeAll()
         lock.unlock()
+
+        levelLock.lock()
+        _level = 0
+        levelLock.unlock()
 
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
@@ -63,6 +79,11 @@ final class AudioEngine {
         defer { lock.unlock() }
         let recorded = samples
         samples = []
+
+        levelLock.lock()
+        _level = 0
+        levelLock.unlock()
+
         return recorded
     }
 
@@ -92,5 +113,20 @@ final class AudioEngine {
         lock.lock()
         samples.append(contentsOf: UnsafeBufferPointer(start: channel[0], count: frames))
         lock.unlock()
+
+        // Live level for the overlay: RMS of this buffer, gained into a 0…1
+        // range for speech and low-pass smoothed so the waveform doesn't jump.
+        var sumSquares: Float = 0
+        for i in 0..<frames {
+            let s = channel[0][i]
+            sumSquares += s * s
+        }
+        let rms = (sumSquares / Float(frames)).squareRoot()
+        // Perceptual curve: sqrt lifts quiet/normal speech (small RMS) into a
+        // visible range while compressing loud peaks so they don't saturate.
+        let normalized = min(1, rms.squareRoot() * 3)
+        levelLock.lock()
+        _level = _level * 0.6 + normalized * 0.4
+        levelLock.unlock()
     }
 }

@@ -102,7 +102,9 @@ final class DictationController: ObservableObject {
             try audio.start()
             phase = .recording
             playSound("Tink")
-            if Settings.overlayEnabled { overlay.show(.listening) }
+            if Settings.overlayEnabled {
+                overlay.show(.listening, level: { [audio] in audio.level })
+            }
         } catch {
             errorMessage = "Could not start recording: \(error.localizedDescription)"
         }

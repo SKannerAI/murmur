@@ -16,10 +16,12 @@ final class RecordingOverlay {
 
     private var panel: NSPanel?
 
-    func show(_ state: State) {
+    /// - Parameter level: live microphone level (0…1) source, sampled every
+    ///   frame by the flowing waveform. Only meaningful for `.listening`.
+    func show(_ state: State, level: @escaping () -> Float = { 0 }) {
         hideImmediately()
 
-        let hosting = NSHostingView(rootView: OverlayView(state: state))
+        let hosting = NSHostingView(rootView: OverlayView(state: state, level: level))
         let size = hosting.fittingSize
 
         let panel = NSPanel(
@@ -87,6 +89,7 @@ final class RecordingOverlay {
 /// The capsule itself: pulsing mic halo, animated waveform bars, status label.
 private struct OverlayView: View {
     let state: RecordingOverlay.State
+    let level: () -> Float
     @State private var pulsing = false
 
     private var color: Color { state == .listening ? .green : .orange }
@@ -105,7 +108,7 @@ private struct OverlayView: View {
             }
 
             if state == .listening {
-                WaveformBars(color: color)
+                FlowingWaveform(color: color, level: level)
             }
 
             Text(state == .listening ? "Listening…" : "Not ready yet…")
@@ -126,27 +129,94 @@ private struct OverlayView: View {
     }
 }
 
-private struct WaveformBars: View {
+/// Siri-style flowing waveform: overlapping sine waves that drift at different
+/// speeds and swell with the live microphone level. Rendered every frame via
+/// `TimelineView(.animation)` + `Canvas` so the motion is continuous and smooth
+/// rather than a stepped implicit animation.
+private struct FlowingWaveform: View {
     let color: Color
-    @State private var animating = false
+    let level: () -> Float
 
-    private let heights: [CGFloat] = [8, 16, 11, 20, 9]
+    // Frame-to-frame smoothing state; a reference type so mutating it during
+    // Canvas rendering doesn't invalidate SwiftUI state every frame.
+    @State private var display = LevelBox()
+
+    // Per-wave parameters: (relative speed, wavelength, amplitude scale, opacity).
+    private let waves: [(speed: Double, wavelength: Double, amp: CGFloat, opacity: Double)] = [
+        (2.2, 22, 1.00, 1.00),
+        (1.5, 30, 0.75, 0.55),
+        (3.1, 16, 0.55, 0.35),
+    ]
 
     var body: some View {
-        HStack(spacing: 3) {
-            ForEach(heights.indices, id: \.self) { index in
-                Capsule()
-                    .fill(color)
-                    .frame(width: 3, height: animating ? heights[index] : 4)
-                    .animation(
-                        .easeInOut(duration: 0.45)
-                            .repeatForever(autoreverses: true)
-                            .delay(Double(index) * 0.1),
-                        value: animating
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let now = timeline.date.timeIntervalSinceReferenceDate
+                let dt = display.lastTime == 0 ? 0 : now - display.lastTime
+                display.lastTime = now
+                // ~90ms time constant.
+                let k = Float(1 - exp(-dt / 0.09))
+                display.value += (level() - display.value) * k
+
+                // A little idle breathing so it never looks frozen in silence,
+                // plus the voice-driven swell on top.
+                let idle = 0.12 + 0.05 * sin(now * 1.6)
+                let strength = CGFloat(idle) + CGFloat(display.value)
+                let maxAmp = size.height / 2 - 1
+
+                for wave in waves {
+                    let amp = min(maxAmp, maxAmp * wave.amp * strength)
+                    let path = wavePath(size: size, time: now, wave: wave, amplitude: amp)
+                    // Per-wave opacity is folded into the gradient colours since a
+                    // GraphicsContext stroke returns no chainable view modifier.
+                    context.stroke(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [
+                                color.opacity(0.15 * wave.opacity),
+                                color.opacity(wave.opacity),
+                                color.opacity(0.15 * wave.opacity),
+                            ]),
+                            startPoint: .zero,
+                            endPoint: CGPoint(x: size.width, y: 0)
+                        ),
+                        lineWidth: 2
                     )
+                }
             }
         }
-        .frame(height: 22)
-        .onAppear { animating = true }
+        .frame(width: 62, height: 22)
     }
+
+    private func wavePath(
+        size: CGSize,
+        time: Double,
+        wave: (speed: Double, wavelength: Double, amp: CGFloat, opacity: Double),
+        amplitude: CGFloat
+    ) -> Path {
+        var path = Path()
+        let midY = size.height / 2
+        let step: CGFloat = 1.5
+        var x: CGFloat = 0
+        while x <= size.width {
+            let rel = Double(x / size.width)
+            // Envelope tapers both ends to the midline, so the waves appear to
+            // emanate from the centre the way Siri's do.
+            let envelope = sin(rel * .pi)
+            let y = Double(midY) + sin(Double(x) / wave.wavelength - time * wave.speed)
+                * Double(amplitude) * envelope
+            let point = CGPoint(x: x, y: y)
+            if x == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            x += step
+        }
+        return path
+    }
+}
+
+/// Reference-type scratch space for the waveform's frame-to-frame smoothing.
+/// A class so `Canvas` can mutate it during rendering without triggering a
+/// SwiftUI state invalidation each frame.
+private final class LevelBox {
+    var value: Float = 0
+    var lastTime: TimeInterval = 0
 }
