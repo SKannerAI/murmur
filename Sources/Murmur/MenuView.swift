@@ -3,6 +3,7 @@ import SwiftUI
 /// The menu-bar popover: status, settings, permissions, and last transcript.
 struct MenuView: View {
     @EnvironmentObject private var controller: DictationController
+    @EnvironmentObject private var ollama: OllamaModelManager
 
     @AppStorage(Settings.Keys.whisperModel) private var whisperModel = "base.en"
     @AppStorage(Settings.Keys.ollamaModel) private var ollamaModel = "qwen2.5:3b"
@@ -31,6 +32,49 @@ struct MenuView: View {
         .padding(12)
         .frame(width: 340)
         .onAppear { controller.refreshPermissions() }
+        .task { await ollama.refresh() }
+    }
+
+    /// Curated cleanup models plus any others the server already has installed,
+    /// and the current selection so it's always present even if unknown.
+    private var ollamaModelOptions: [String] {
+        var names = Settings.ollamaModels.map(\.name)
+        for name in ollama.installed.sorted() where !names.contains(name) {
+            names.append(name)
+        }
+        if !names.contains(ollamaModel) { names.append(ollamaModel) }
+        return names
+    }
+
+    private func ollamaLabel(for name: String) -> String {
+        let base = Settings.ollamaModels.first { $0.name == name }?.label ?? name
+        return ollama.isInstalled(name) ? "\(base)  ✓" : base
+    }
+
+    /// Install state / background-download control for the selected model.
+    @ViewBuilder
+    private var ollamaModelStatus: some View {
+        if ollama.isDownloading(ollamaModel) {
+            HStack(spacing: 6) {
+                ProgressView(value: ollama.progress(ollamaModel))
+                Text("\(Int(ollama.progress(ollamaModel) * 100))%")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        } else if ollama.isInstalled(ollamaModel) {
+            Label("Installed", systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+        } else {
+            HStack {
+                Text("Not installed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Download") { ollama.download(ollamaModel) }
+                    .font(.caption)
+            }
+        }
     }
 
     private var statusSection: some View {
@@ -60,9 +104,15 @@ struct MenuView: View {
             Toggle("LLM cleanup via Ollama", isOn: $cleanupEnabled)
 
             if cleanupEnabled {
-                TextField("Ollama model", text: $ollamaModel)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption)
+                Picker("Ollama model", selection: $ollamaModel) {
+                    ForEach(ollamaModelOptions, id: \.self) { name in
+                        Text(ollamaLabel(for: name)).tag(name)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                ollamaModelStatus
+
                 TextField("Ollama URL", text: $ollamaURL)
                     .textFieldStyle(.roundedBorder)
                     .font(.caption)

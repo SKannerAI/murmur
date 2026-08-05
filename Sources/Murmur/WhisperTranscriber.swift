@@ -23,7 +23,9 @@ actor WhisperTranscriber {
         if whisperKit != nil, loadedModel == model { return }
         whisperKit = nil
         loadedModel = nil
-        let config = WhisperKitConfig(model: model)
+        let downloadBase = Settings.modelDirectory
+        try? FileManager.default.createDirectory(at: downloadBase, withIntermediateDirectories: true)
+        let config = WhisperKitConfig(model: model, downloadBase: downloadBase)
         whisperKit = try await WhisperKit(config)
         loadedModel = model
     }

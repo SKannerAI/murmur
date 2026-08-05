@@ -8,6 +8,7 @@ struct MurmurApp: App {
         MenuBarExtra {
             MenuView()
                 .environmentObject(controller)
+                .environmentObject(controller.ollama)
         } label: {
             Image(systemName: controller.phase.symbolName)
         }

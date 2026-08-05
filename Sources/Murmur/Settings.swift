@@ -32,8 +32,26 @@ enum Settings {
         ("large-v3-v20240930", "large-v3-turbo — best (~950 MB)"),
     ]
 
+    /// Ollama cleanup models offered in the menu. Any others the server already
+    /// has installed are merged into the dropdown at runtime.
+    static let ollamaModels: [(name: String, label: String)] = [
+        ("qwen2.5:3b", "Qwen2.5 3B — default (~1.9 GB)"),
+        ("llama3.2:3b", "Llama 3.2 3B (~2.0 GB)"),
+        ("gemma2:2b", "Gemma 2 2B — smallest (~1.6 GB)"),
+        ("qwen2.5:7b", "Qwen2.5 7B — most accurate (~4.7 GB)"),
+    ]
+
     static func register() {
         UserDefaults.standard.register(defaults: defaults)
+    }
+
+    /// Where WhisperKit model files are downloaded and cached. Application
+    /// Support is used deliberately: Documents/Desktop/Downloads are all
+    /// TCC-protected and would trigger a macOS access prompt on first write.
+    static var modelDirectory: URL {
+        let base = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("Murmur", isDirectory: true)
     }
 
     static var whisperModel: String {

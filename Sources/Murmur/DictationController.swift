@@ -53,6 +53,10 @@ final class DictationController: ObservableObject {
     private let cleaner = OllamaCleaner()
     private let overlay = RecordingOverlay()
 
+    /// Owns the Ollama model catalog (installed state, background downloads,
+    /// warm-up). Injected into the menu so the model dropdown can observe it.
+    let ollama = OllamaModelManager()
+
     init() {
         Settings.register()
 
@@ -67,6 +71,13 @@ final class DictationController: ObservableObject {
         }
 
         Task { await preloadModel() }
+
+        // Warm up the Ollama cleanup model on launch so the first dictation
+        // isn't slowed by a cold model load. Refresh the installed catalog too.
+        if Settings.cleanupEnabled {
+            ollama.warmUp(Settings.ollamaModel)
+        }
+        Task { await ollama.refresh() }
     }
 
     func refreshPermissions() {
