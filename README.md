@@ -1,7 +1,6 @@
 # Murmur
 
-A fully-local, privacy-preserving voice dictation app for macOS (Apple Silicon) — a
-[Wispr Flow](https://wisprflow.ai) clone where **nothing leaves your Mac**.
+A fully-local, privacy-preserving voice dictation app for macOS (Apple Silicon) where **nothing leaves your Mac**.
 
 Hold a hotkey, speak, release: Murmur transcribes your speech locally with Whisper,
 cleans it up with a local LLM (fillers removed, grammar and punctuation fixed), and
